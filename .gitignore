@@ -1,0 +1,9 @@
+node_modules/
+dist/
+storage/private/originals/
+storage/private/thumbnails/
+*.db
+*.db-journal
+data/
+.env
+.env.local

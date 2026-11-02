@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/mymicaela.db"
+}
+
+// ============================================================================
+// User — Two accounts: owner and partner
+// ============================================================================
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  displayName  String
+  passwordHash String
+  role         String   // "owner" | "partner"
+  createdAt    DateTime @default(now())
+
+  // Relations
+  sessions    Session[]
+  albums      Album[]           @relation("AlbumCreator")
+  photos      Photo[]           @relation("PhotoUploader")
+  permissions AlbumPermission[]
+
+  @@map("users")
+}
+
+// ============================================================================
+// Session — Authenticated user sessions
+// ============================================================================
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ============================================================================
+// Album — Photo album container
+// ============================================================================
+model Album {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  coverPhotoId String?  @unique
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now())
+
+  // Relations
+  creator     User              @relation("AlbumCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  coverPhoto  Photo?            @relation("AlbumCover", fields: [coverPhotoId], references: [id], onDelete: SetNull)
+  photos      Photo[]           @relation("AlbumPhotos")
+  permissions AlbumPermission[]
+
+  @@index([createdBy])
+  @@map("albums")
+}
+
+// ============================================================================
+// Photo — Photo metadata (actual files stored on filesystem)
+// ============================================================================
+model Photo {
+  id           String   @id @default(uuid())
+  albumId      String
+  filename     String   @unique // UUID-based filename on disk
+  originalName String            // Original upload filename
+  mimeType     String
+  fileSize     Int
+  width        Int      @default(0)
+  height       Int      @default(0)
+  uploadedBy   String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  album       Album  @relation("AlbumPhotos", fields: [albumId], references: [id], onDelete: Cascade)
+  uploader    User   @relation("PhotoUploader", fields: [uploadedBy], references: [id], onDelete: Cascade)
+  coverForAlbum Album? @relation("AlbumCover")
+
+  @@index([albumId])
+  @@index([uploadedBy])
+  @@map("photos")
+}
+
+// ============================================================================
+// AlbumPermission — Access control for albums
+// ============================================================================
+model AlbumPermission {
+  id         String   @id @default(uuid())
+  albumId    String
+  userId     String
+  permission String   // "view" | "edit"
+  grantedAt  DateTime @default(now())
+
+  // Relations
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([albumId, userId])
+  @@index([userId])
+  @@map("album_permissions")
+}
+
